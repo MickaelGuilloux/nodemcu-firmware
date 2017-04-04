@@ -234,6 +234,22 @@ static void ICACHE_RAM_ATTR lgpio_pulse()
   platform_gpio_write(4, LOW);
 }
 
+static int lgpio_delayPulse_init()
+{
+  platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, TRUE);
+  platform_hw_timer_set_func(TIMER_OWNER, lgpio_pulse, 0);
+}
+
+static int lgpio_delayPulse_stop()
+{
+  platform_hw_timer_close(TIMER_OWNER);
+}
+
+static int lgpio_delayPulse_arm()
+{
+  platform_hw_timer_arm_us(TIMER_OWNER, 100);
+}
+
 static void ICACHE_RAM_ATTR seroutasync_cb(os_param_t p)
 {
   (void)p;
@@ -330,18 +346,7 @@ static int lgpio_serout(lua_State *L)
   return 0;
 }
 
-// Lua: delayPulse( pin, level )
-static int lgpio_delayPulse(lua_State *L)
-{
 
-  platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, TRUE);
-  platform_hw_timer_set_func(TIMER_OWNER, lgpio_pulse, 0);
-
-  lgpio_pulse();
-  platform_hw_timer_arm_us(TIMER_OWNER, 100);
-  platform_hw_timer_close(TIMER_OWNER);
-  return 0;
-}
 #undef DELAY_TABLE_MAX_LEN
 
 // Module function map
@@ -350,7 +355,9 @@ static const LUA_REG_TYPE gpio_map[] = {
     {LSTRKEY("read"), LFUNCVAL(lgpio_read)},
     {LSTRKEY("write"), LFUNCVAL(lgpio_write)},
     {LSTRKEY("pulse"), LFUNCVAL(lgpio_pulse)},
-    {LSTRKEY("pulseDelay"), LFUNCVAL(lgpio_delayPulse)},
+    {LSTRKEY("pulseDelayInit"), LFUNCVAL(lgpio_delayPulse_init)},
+    {LSTRKEY("pulseDelayStop"), LFUNCVAL(lgpio_delayPulse_stop)},
+    {LSTRKEY("pulseDelayArm"), LFUNCVAL(lgpio_delayPulse_arm)},
     {LSTRKEY("serout"), LFUNCVAL(lgpio_serout)},
 #ifdef GPIO_INTERRUPT_ENABLE
     {LSTRKEY("trig"), LFUNCVAL(lgpio_trig)},
