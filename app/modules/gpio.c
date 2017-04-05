@@ -236,7 +236,7 @@ static void ICACHE_RAM_ATTR lgpio_pulse()
 
 static int lgpio_delayPulse_init()
 {
-  platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, TRUE);
+  platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, FALSE);
   platform_hw_timer_set_func(TIMER_OWNER, lgpio_pulse, 0);
 }
 
