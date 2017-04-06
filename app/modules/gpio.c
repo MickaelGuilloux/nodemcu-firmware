@@ -183,17 +183,22 @@ static int lgpio_write(lua_State *L)
   return 0;
 }
 
+/* 
+ * Lua: serout(pin, firstLevel, delay_table[, repeat_num[, callback]])
+ *
+ * gpio.mode(1, gpio.OUTPUT, gpio.PULLUP)
+ * gpio.serout(1, 1, {30, 30, 60, 60, 30, 30})          -- serial one byte, b10110010
+ * gpio.serout(1, 1, {30, 70}, 8)                       -- serial 30% pwm 10k, lasts 8 cycles
+ * gpio.serout(1, 1, {3, 7}, 8)                         -- serial 30% pwm 100k, lasts 8 cycles
+ * gpio.serout(1, 1, {0, 0}, 8)                         -- serial 50% pwm as fast as possible, lasts 8 cycles
+ *
+ * gpio.serout(1, 0, {20, 10, 10, 20, 10, 10, 10, 100}) -- sim uart one byte 0x5A at about 100kbps
+ * gpio.serout(1, 1, {8, 18}, 8)                        -- serial 30% pwm 38k, lasts 8 cycles
+ */
+
 #define DELAY_TABLE_MAX_LEN 256
 #define delayMicroseconds os_delay_us
-// Lua: serout( pin, firstLevel, delay_table[, repeat_num[, callback]])
-// gpio.mode(1,gpio.OUTPUT,gpio.PULLUP)
-// gpio.serout(1,1,{30,30,60,60,30,30})  -- serial one byte, b10110010
-// gpio.serout(1,1,{30,70},8)  -- serial 30% pwm 10k, lasts 8 cycles
-// gpio.serout(1,1,{3,7},8)  -- serial 30% pwm 100k, lasts 8 cycles
-// gpio.serout(1,1,{0,0},8)  -- serial 50% pwm as fast as possible, lasts 8 cycles
-// gpio.mode(1,gpio.OUTPUT,gpio.PULLUP)
-// gpio.serout(1,0,{20,10,10,20,10,10,10,100}) -- sim uart one byte 0x5A at about 100kbps
-// gpio.serout(1,1,{8,18},8) -- serial 30% pwm 38k, lasts 8 cycles
+
 
 typedef struct
 {
@@ -346,8 +351,10 @@ static int lgpio_serout(lua_State *L)
   return 0;
 }
 
-
 #undef DELAY_TABLE_MAX_LEN
+
+// End Lua serout =============================================================
+
 
 // Module function map
 static const LUA_REG_TYPE gpio_map[] = {
