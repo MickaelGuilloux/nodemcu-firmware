@@ -183,19 +183,18 @@ static int lgpio_write(lua_State *L)
   return 0;
 }
 
-/* 
- * Lua: serout(pin, firstLevel, delay_table[, repeat_num[, callback]])
- *
- * gpio.mode(1, gpio.OUTPUT, gpio.PULLUP)
- * gpio.serout(1, 1, {30, 30, 60, 60, 30, 30})          -- serial one byte, b10110010
- * gpio.serout(1, 1, {30, 70}, 8)                       -- serial 30% pwm 10k, lasts 8 cycles
- * gpio.serout(1, 1, {3, 7}, 8)                         -- serial 30% pwm 100k, lasts 8 cycles
- * gpio.serout(1, 1, {0, 0}, 8)                         -- serial 50% pwm as fast as possible, lasts 8 cycles
- *
- * gpio.serout(1, 0, {20, 10, 10, 20, 10, 10, 10, 100}) -- sim uart one byte 0x5A at about 100kbps
- * gpio.serout(1, 1, {8, 18}, 8)                        -- serial 30% pwm 38k, lasts 8 cycles
- */
-
+/******************************************************************************
+* Lua: serout(pin, firstLevel, delay_table[, repeat_num[, callback]])
+*
+* gpio.mode(1, gpio.OUTPUT, gpio.PULLUP)
+* gpio.serout(1, 1, {30, 30, 60, 60, 30, 30})          -- serial one byte, b10110010
+* gpio.serout(1, 1, {30, 70}, 8)                       -- serial 30% pwm 10k, lasts 8 cycles
+* gpio.serout(1, 1, {3, 7}, 8)                         -- serial 30% pwm 100k, lasts 8 cycles
+* gpio.serout(1, 1, {0, 0}, 8)                         -- serial 50% pwm as fast as possible, lasts 8 cycles
+*
+* gpio.serout(1, 0, {20, 10, 10, 20, 10, 10, 10, 100}) -- sim uart one byte 0x5A at about 100kbps
+* gpio.serout(1, 1, {8, 18}, 8)                        -- serial 30% pwm 38k, lasts 8 cycles
+*******************************************************************************/
 #define DELAY_TABLE_MAX_LEN 256
 #define delayMicroseconds os_delay_us
 
@@ -230,29 +229,6 @@ static void seroutasync_done(task_param_t arg)
       luaL_error(L, "error: %s", lua_tostring(L, -1));
     }
   }
-}
-
-// Lua: pulse( pin, level )
-static void ICACHE_RAM_ATTR lgpio_pulse()
-{
-  platform_gpio_write(4, HIGH);
-  platform_gpio_write(4, LOW);
-}
-
-static int lgpio_delayPulse_init()
-{
-  platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, FALSE);
-  platform_hw_timer_set_func(TIMER_OWNER, lgpio_pulse, 0);
-}
-
-static int lgpio_delayPulse_stop()
-{
-  platform_hw_timer_close(TIMER_OWNER);
-}
-
-static int lgpio_delayPulse_arm()
-{
-  platform_hw_timer_arm_us(TIMER_OWNER, 100);
 }
 
 static void ICACHE_RAM_ATTR seroutasync_cb(os_param_t p)
@@ -354,6 +330,57 @@ static int lgpio_serout(lua_State *L)
 #undef DELAY_TABLE_MAX_LEN
 
 // End Lua serout =============================================================
+
+/******************************************************************************
+* Lua: delayPulse
+* pulse(width)
+*
+* /!\ Because they share the same hardawre timer,
+*     using serout and delayPulse together
+*     leads to an inconsistent result.
+*******************************************************************************/
+static unsigned pulse_pin;
+static uint32_t pulse_width;
+static sint32_t pulse_delay = 1;
+
+// Lua: pulse(width)
+static void ICACHE_RAM_ATTR lgpio_pulse()
+{
+  platform_gpio_write(pulse_pin, HIGH);
+  os_delay_us(pulse_width);
+  system_soft_wdt_feed();
+  platform_gpio_write(pulse_pin, LOW);
+}
+
+// Lua: delayPulse_init(pin, width, delay)
+static int lgpio_delayPulse_init(lua_State *L)
+{
+  pulse_pin = luaL_checkinteger(L, 1);
+  pulse_width = luaL_checkinteger(L, 2);
+  pulse_delay = luaL_checkinteger(L, 3);
+
+  luaL_argcheck(L, platform_gpio_exists(pulse_pin), 1, "Invalid pin");
+  luaL_argcheck(L, (pulse_width > 0) and (pulse_width < 100), 2, "Wrong range (must be greater than 0 and lower than 100)");
+
+
+  platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, FALSE);
+  platform_hw_timer_set_func(TIMER_OWNER, lgpio_pulse, 0);
+}
+
+// Lua: delayPulse_close()
+static int lgpio_delayPulse_close()
+{
+  platform_hw_timer_close(TIMER_OWNER);
+}
+
+// Lua: delayPulse_arm()
+static int lgpio_delayPulse_arm()
+{
+  platform_hw_timer_arm_us(TIMER_OWNER, pulse_delay);
+}
+
+// End Lua delayPulse =========================================================
+
 
 
 // Module function map
