@@ -342,13 +342,15 @@ static int lgpio_serout(lua_State *L)
 static unsigned pulse_pin;
 static uint32_t pulse_width;
 static sint32_t pulse_delay = 1;
+static bool pulse_lock = false;
 
 // Lua: pulse(width)
 static void ICACHE_RAM_ATTR lgpio_pulse()
 {
   platform_gpio_write(pulse_pin, HIGH);
+  pulse_lock = false;
   os_delay_us(pulse_width);
-  system_soft_wdt_feed();
+  //system_soft_wdt_feed();
   platform_gpio_write(pulse_pin, LOW);
 }
 
@@ -360,7 +362,7 @@ static int lgpio_delayPulse_init(lua_State *L)
   pulse_delay = luaL_checkinteger(L, 3);
 
   luaL_argcheck(L, platform_gpio_exists(pulse_pin), 1, "Invalid pin");
-  luaL_argcheck(L, (pulse_width > 0) and (pulse_width < 100), 2, "Wrong range (must be greater than 0 and lower than 100)");
+  luaL_argcheck(L, (pulse_width > 0) && (pulse_width < 100), 2, "Wrong range (must be greater than 0 and lower than 100)");
 
 
   platform_hw_timer_init(TIMER_OWNER, FRC1_SOURCE, FALSE);
@@ -376,7 +378,10 @@ static int lgpio_delayPulse_close()
 // Lua: delayPulse_arm()
 static int lgpio_delayPulse_arm()
 {
-  platform_hw_timer_arm_us(TIMER_OWNER, pulse_delay);
+  if (!pulse_lock) {
+    pulse_lock = true;
+    platform_hw_timer_arm_us(TIMER_OWNER, pulse_delay);
+  }
 }
 
 // End Lua delayPulse =========================================================
@@ -389,9 +394,9 @@ static const LUA_REG_TYPE gpio_map[] = {
     {LSTRKEY("read"), LFUNCVAL(lgpio_read)},
     {LSTRKEY("write"), LFUNCVAL(lgpio_write)},
     {LSTRKEY("pulse"), LFUNCVAL(lgpio_pulse)},
-    {LSTRKEY("pulseDelayInit"), LFUNCVAL(lgpio_delayPulse_init)},
-    {LSTRKEY("pulseDelayStop"), LFUNCVAL(lgpio_delayPulse_stop)},
-    {LSTRKEY("pulseDelayArm"), LFUNCVAL(lgpio_delayPulse_arm)},
+    {LSTRKEY("delayPulseInit"), LFUNCVAL(lgpio_delayPulse_init)},
+    {LSTRKEY("delayPulseClose"), LFUNCVAL(lgpio_delayPulse_close)},
+    {LSTRKEY("delayPulseArm"), LFUNCVAL(lgpio_delayPulse_arm)},
     {LSTRKEY("serout"), LFUNCVAL(lgpio_serout)},
 #ifdef GPIO_INTERRUPT_ENABLE
     {LSTRKEY("trig"), LFUNCVAL(lgpio_trig)},
